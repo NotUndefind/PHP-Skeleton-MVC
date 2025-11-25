@@ -1,8 +1,1 @@
-# Composer
-composer.lock
-
-# Test
-tests/**
-
-# Environement
-.env
+/vendor/
