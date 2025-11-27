@@ -1,18 +1,14 @@
 <?php
 
 
-namespace App\Controllers;
+namespace App\Controller;
 
-use App\Models\User;
+use App\Model\User;
 
 class HomeController {
     public function index() {
         $users = new User();
         $users = $users->all();
-
-        echo '<pre>';
-        print_r($users);
-        echo '</pre>';
-        require __DIR__ . '/../views/home.php';
+        require_once __DIR__ . '/../views/home.php';
     }
 }

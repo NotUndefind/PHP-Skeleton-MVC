@@ -1,12 +1,10 @@
 <?php
 
-namespace App\Models;
+namespace App\Model;
 
 class User {
     public function all(): array {
-        return [
-            ['id' => 1, 'name' => 'Alice'],
-            ['id' => 2, 'name' => 'Bob'],
-        ];
+        $users = json_decode(file_get_contents(__DIR__ . '/../database/db.json'), true)['user'];
+        return $users;
     }
 }
