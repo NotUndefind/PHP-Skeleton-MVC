@@ -10,7 +10,8 @@ A minimal PHP MVC skeleton with PSR-4 autoloading and lightweight routing. This 
 
 ### Starting the Application
 ```bash
-php -S localhost:8000 -t .
+cd public
+php -S localhost:8000
 ```
 
 The application will be accessible at `http://localhost:8000`.
@@ -27,31 +28,41 @@ PHPUnit 11.x is configured as a dev dependency.
 composer install
 ```
 
+After adding autoload configuration, regenerate autoloader:
+```bash
+composer dump-autoload
+```
+
 ## Architecture
 
 ### Request Flow
-1. All requests hit `index.php` (front controller)
-2. `index.php` requires the Composer autoloader and instantiates the `Router`
-3. Routes are registered using `$router->get()` or `$router->post()` methods
-4. `Router::run()` matches the current request method and URI to registered routes
-5. If matched, the router auto-instantiates the controller class and calls the specified method
-6. Controller methods fetch data from models and load views
+1. All requests hit `public/index.php` (front controller)
+2. `public/index.php` requires the Composer autoloader from `vendor/autoload.php`
+3. Router class is loaded via `require_once` from `app/core/Router/router.php`
+4. Routes are registered using `$router->get()` or `$router->post()` methods
+5. `$router->run()` is called to match the current request method and URI
+6. If matched, the router auto-instantiates the controller class and calls the specified method
+7. Controller methods fetch data from models and load views
 
 ### Directory Structure
 
 ```
-app/
-├── Controller/     # Controller classes (namespace: App\Controllers)
-├── Model/          # Model classes (namespace: App\Models)
-├── View/           # View templates (plain PHP files)
-├── core/
-│   └── Router/     # Router implementation
-└── tests/          # Test files (empty by default)
+├── public/
+│   └── index.php       # Entry point (front controller)
+├── app/
+│   ├── Controller/     # Controller classes (namespace: App\Controller)
+│   ├── Model/          # Model classes (namespace: App\Model)
+│   ├── views/          # View templates (plain PHP files, lowercase)
+│   ├── core/
+│   │   └── Router/     # Router implementation (no namespace)
+│   ├── database/       # JSON files or database config
+│   └── tests/          # Test files (empty by default)
+└── vendor/             # Composer dependencies
 ```
 
 ### Router Implementation
 - Located at `app/core/Router/router.php`
-- NOT namespaced (loaded via `require_once` in index.php)
+- NOT namespaced (loaded via `require_once` in public/index.php)
 - Supports GET and POST routes via `get()` and `post()` methods
 - Route handlers can be either:
   - Callable functions/closures
@@ -62,51 +73,57 @@ app/
 
 ### Controllers
 - Located in `app/Controller/`
-- Namespace: `App\Controllers`
+- Namespace: `App\Controller` (singular, not plural)
 - Responsible for handling requests and coordinating models/views
-- Load views using `require` with relative paths: `require __DIR__ . '/../views/viewname.php'`
+- Load views using `require_once` with relative paths: `require_once __DIR__ . '/../views/viewname.php'`
 - Pass data to views by defining variables before requiring the view file
 
 ### Models
 - Located in `app/Model/`
-- Namespace: `App\Models`
+- Namespace: `App\Model` (singular, not plural)
 - No database abstraction layer by default (pure PHP)
-- Example `User` model returns hardcoded array data
-- Should be extended to connect to actual database
+- Example `User` model reads from `app/database/db.json`
+- Use `__DIR__` for file paths to ensure they work regardless of execution context
 
 ### Views
-- Located in `app/View/`
+- Located in `app/views/` (lowercase directory name)
 - Plain PHP files with HTML
 - Access variables passed from controllers
-- Use short echo syntax: `<?= $variable ?>`
+- Use short echo syntax: `<?= htmlspecialchars($variable) ?>` for security
 
-### Key Files
-- `index.php` - Front controller at root, not in app directory
-- `app/core/Router/router.php` - Routing logic (no namespace)
-- `composer.json` - Missing PSR-4 autoload configuration for App namespace
+### Database
+- Located in `app/database/`
+- Default setup uses JSON files (e.g., `db.json`)
+- Structure: `{"user": [{"id": 1, "name": "Alice"}]}`
 
 ## Important Notes
 
-### Missing Autoload Configuration
-The `composer.json` file is missing PSR-4 autoload configuration. Controllers and Models use namespaces but autoloading isn't properly configured. To fix, add to `composer.json`:
+### Path Resolution Best Practices
+Always use `__DIR__` for file paths, not relative paths:
+- ✅ Good: `__DIR__ . '/../database/db.json'`
+- ❌ Bad: `'../database/db.json'`
 
-```json
-"autoload": {
-    "psr-4": {
-        "App\\": "app/"
-    }
-}
-```
+This ensures paths work correctly regardless of where the script is executed from.
 
-Then run `composer dump-autoload`.
+### Namespace Convention
+Controllers and Models use singular namespaces:
+- `App\Controller` (not `App\Controllers`)
+- `App\Model` (not `App\Models`)
+
+### View Directory Naming
+The views directory is lowercase `views/`, not capitalized `View/`.
 
 ### Router Not Namespaced
-The `Router` class at `app/core/Router/router.php` is not namespaced and is loaded via `require_once` in `index.php`. This is inconsistent with the PSR-4 autoloading pattern used for Controllers and Models.
+The `Router` class at `app/core/Router/router.php` is not namespaced and is loaded via `require_once` in `public/index.php`. This is intentional to keep the router simple and independent.
 
-### View Path Convention
-Controllers load views using relative paths from the Controller directory:
-```php
-require __DIR__ . '/../views/home.php';
-```
+### Entry Point Location
+The entry point is `public/index.php`, not at the root. This follows best practices by keeping the publicly accessible files in a separate directory.
 
-Note the lowercase `views` in the path, but the actual directory is `View` (capitalized).
+### Route Registration Order
+Routes must be registered BEFORE calling `$router->run()`. The order in `public/index.php` matters:
+1. Require autoloader
+2. Require router
+3. Import controller classes with `use`
+4. Instantiate router
+5. Register all routes
+6. Call `$router->run()`
